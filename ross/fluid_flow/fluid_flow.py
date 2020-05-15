@@ -261,6 +261,9 @@ class FluidFlow:
         self.xri = np.zeros([self.nz, self.ntheta])
         self.yre = np.zeros([self.nz, self.ntheta])
         self.yri = np.zeros([self.nz, self.ntheta])
+        self.xi0 = 0
+        self.omegap = 200
+        self.t = 0
         self.p_mat_analytical = np.zeros([self.nz, self.ntheta])
         self.c1 = np.zeros([self.nz, self.ntheta])
         self.c2 = np.zeros([self.nz, self.ntheta])
@@ -417,6 +420,9 @@ class FluidFlow:
                 self.c0w[i][j] = (- w * self.ri[i][j] *
                                   (np.log(self.re[i][j] / self.ri[i][j]) *
                                    (1 + (self.ri[i][j] ** 2) / (self.re[i][j] ** 2 - self.ri[i][j] ** 2)) - 1 / 2))
+                #angle = self.attitude_angle-self.gama[i][j]
+                #dri = -self.eccentricity*np.cos(angle)-(self.eccentricity**2 *np.cos(angle)*np.sin(angle))/np.sqrt(self.radius_rotor**2-self.eccentricity**2*np.cos(angle)**2)
+                #self.c0w[i][j] += self.ri[i][j]*self.omegap*(self.xi0/100)*np.cos(self.omegap*self.t)*(dri*np.sin(self.gama[i][j]) + self.ri[i][j]*np.cos(self.gama[i][j]))
                 # fmt: on
                 if not eccentricity_error:
                     if abs(self.xri[i][j]) > abs(self.xre[i][j]) or abs(
