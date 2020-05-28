@@ -161,6 +161,125 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
     return radial_force, tangential_force, force_x, force_y
 
 
+def calculate_coefficients_matrix(fluid_flow_object):
+    N = 20  # Number of time steps
+    t = np.linspace(0, 2 * np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
+    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.002  # Perturbation along x
+    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.002  # Perturbation along y
+    xi0 = fluid_flow_object.xi  # Eq. pos. along x
+    yi0 = fluid_flow_object.yi  # Eq. pos. along y
+    dx = np.zeros(N) # Displ. vetor from eq. pos. along x
+    dy = np.zeros(N) # Displ. vetor from eq. pos. along x
+    xdot = np.zeros(N)  # Vector with displ. perturbations along x
+    ydot = np.zeros(N)  # Vector with velocity perturbations along x
+    radial_force = np.zeros(N)
+    tangential_force = np.zeros(N)
+    force_xx = np.zeros(N) # Force along x for a perturbation along x
+    force_yx = np.zeros(N) # Force along y for a perturbation along x
+    force_xy = np.zeros(N) # Force along x for a perturbation along y
+    force_yy = np.zeros(N) # Force along y for a perturbation along y
+    X = np.zeros([4*N,8]) # Displ. and vel. vector
+    F = np.zeros(4*N) # Forces vector
+
+    # Compute the coefficients of the continuity equation for eq. position
+    fluid_flow_object.calculate_coefficients()
+    p_mat = fluid_flow_object.calculate_pressure_matrix_numerical()
+    [radial_force_eq, tangential_force_eq, feqx, feqy] = \
+        calculate_oil_film_force(fluid_flow_object, force_type='numerical')
+
+    # This loop computes the hor. and vert. forces for perturbations along x and y dir with a freq. omegap
+    # The time vector t ranges from 0-T (one period), with N timesteps
+    # For each t, 2 set of equations are obtained:
+    #   One for a perturbation along x:
+    #       Kxx*x(t) + Cxx*xdot(t) = Fxx(t) - Feqx
+    #       Kxy*x(t) + Cxy*xdot(t) = Fxy(t) - Feqy
+    #   One for a perturbation along y
+    #       Kyx*y(t) + Cyx*ydot(t) = Fyx(t) - Feqx
+    #       Kyy*y(t) + Cyy*ydot(t) = Fyy(t) - Feqy
+    # Thus, for all the timesteps, the following equations are obtained for the x direction:
+    #       Kxx*x(t[0]) + Cxx*xdot(t[0]) = Fxx(t[0]) - Feqx
+    #       Kxy*x(t[0]) + Cxy*xdot(t[0]) = Fxy(t[0]) - Feqy
+    #       Kyx*y(t[0]) + Cyx*ydot(t[0]) = Fyx(t[0]) - Feqx
+    #       Kyy*y(t[0]) + Cyy*ydot(t[0]) = Fyy(t[0]) - Feqy
+    #       Kxx*x(t[1]) + Cxx*xdot(t[1]) = Fxx(t[1]) - Feqx
+    #       Kxy*x(t[1]) + Cxy*xdot(t[1]) = Fxy(t[1]) - Feqy
+    #       Kyx*y(t[1]) + Cyx*ydot(t[1]) = Fyx(t[1]) - Feqx
+    #       Kyy*y(t[1]) + Cyy*ydot(t[1]) = Fyy(t[1]) - Feqy
+    #           ...     +       ...      =      ...
+    #       Kxx*x(t[N-1]) + Cxx*xdot(t[N-1]) = Fxx(t[N-1]) - Feqx
+    #       Kxy*x(t[N-1]) + Cxy*xdot(t[N-1]) = Fxy(t[N-1]) - Feqy
+    #       Kyx*y(t[N-1]) + Cyx*ydot(t[N-1]) = Fyx(t[N-1]) - Feqx
+    #       Kyy*y(t[N-1]) + Cyy*ydot(t[N-1]) = Fyy(t[N-1]) - Feqy
+    # The equations can be expressed in matrix-form as:
+    #       X*P = F
+    #  where
+    # X is 4Nx8: [[x(t[i]),xdot(t[i]),  0    ,   0      ,   0   ,   0      ,   0   ,    0      ]
+    #             [   0   ,   0      ,x(t[i]),xdot(t[i]),   0   ,   0      ,   0   ,    0      ]
+    #             [   0   ,   0      ,   0   ,    0     ,y(t[i]),ydot(t[i]),   0   ,    0      ]
+    #             [   0   ,   0      ,   0   ,    0     ,   0   ,   0      ,y(t[i]), ydot(t[i])] ]
+    # P is 8x1: [Kxx,Cxx,Kxy,Cxy,Kyx,Cyx,Kyy,Cyy]
+    # F is 4Nx1: [Fxx(t[i]) - Feqx,Fxy(t[i]) - Feqx,Fyx(t[i]) - Feqx,Fyy(t[i]) - Feqx]
+    # Thus, the parameter vector P can be obtain by using the pseudo-inverse of X ('cause it cannot be inverted):
+    # P = (x^T*X)^(-1)*(x^T)*F
+    for i in range(N):
+        print("Progress: {:2.1%}".format(i / N), end="\r")
+        fluid_flow_object.t = t[i]
+
+        # X DIRECTION
+        # Compute the variation of the displ. along x for t[i]
+        delta_x = fluid_flow_object.xp * np.sin(fluid_flow_object.omegap * fluid_flow_object.t)
+        # Compute parameters (xi,yi,ecc,eps,beta) for the new state
+        fluid_flow_object.xi = xi0 + delta_x
+        fluid_flow_object.yi = yi0
+        fluid_flow_object.eccentricity = np.sqrt(fluid_flow_object.xi ** 2 + fluid_flow_object.yi ** 2)
+        fluid_flow_object.eccentricity_ratio = fluid_flow_object.eccentricity / fluid_flow_object.difference_between_radius
+        fluid_flow_object.attitude_angle = -np.arctan(fluid_flow_object.xi / fluid_flow_object.yi)
+        # Store the displ. and velocity perturbations in vectors
+        dx[i] = delta_x
+        xdot[i] = fluid_flow_object.omegap * fluid_flow_object.xp * np.cos(fluid_flow_object.omegap * fluid_flow_object.t)
+        # Compute the coefficients of the continuity equation along x
+        fluid_flow_object.calculate_coefficients(direction="x")
+        p_mat = fluid_flow_object.calculate_pressure_matrix_numerical()
+        # Compute the forces for a perturbation along x
+        [radial_force[i], tangential_force[i], force_xx[i], force_yx[i]] = \
+            calculate_oil_film_force(fluid_flow_object, force_type='numerical')
+
+        # Y DIRECTION
+        # Compute the variation of the displ. along Y for t[i]
+        delta_y = fluid_flow_object.yp * np.sin(fluid_flow_object.omegap * fluid_flow_object.t)
+        # Compute parameters (xi,yi,ecc,eps,beta) for the new state
+        fluid_flow_object.xi = xi0
+        fluid_flow_object.yi = yi0 + delta_y
+        fluid_flow_object.eccentricity = np.sqrt(fluid_flow_object.xi ** 2 + fluid_flow_object.yi ** 2)
+        fluid_flow_object.eccentricity_ratio = fluid_flow_object.eccentricity / fluid_flow_object.difference_between_radius
+        fluid_flow_object.attitude_angle = -np.arctan(fluid_flow_object.xi / fluid_flow_object.yi)
+        # Store the displ. and velocity perturbations in vectors
+        dy[i] = delta_y
+        ydot[i] = fluid_flow_object.omegap * fluid_flow_object.yp * np.cos(fluid_flow_object.omegap * fluid_flow_object.t)
+        # Compute the coefficients of the continuity equation along Y
+        fluid_flow_object.calculate_coefficients(direction="y")
+        p_mat = fluid_flow_object.calculate_pressure_matrix_numerical()
+        # Compute the forces for a perturbation along Y
+        [radial_force[i], tangential_force[i], force_xy[i], force_yy[i]] = \
+            calculate_oil_film_force(fluid_flow_object, force_type='numerical')
+
+        # Assemble X and F matrices
+        X[4*i] =   [dx[i],xdot[i],      0,    0,      0,      0,    0,      0]
+        X[4*i+1] = [    0,      0,  dy[i],ydot[i],    0,      0,    0,      0]
+        X[4*i+2] = [    0,      0,      0,      0,dx[i],xdot[i],    0,      0]
+        X[4*i+3] = [    0,      0,      0,      0,    0,      0,dy[i], ydot[i]]
+        F[4*i] = -force_xx[i] + feqx
+        F[4*i+1] = -force_xy[i] + feqy
+        F[4*i+2] = -force_yx[i] + feqx
+        F[4*i+3] = -force_yy[i] + feqy
+
+    # Compute the parameters vector according to # P = (x^T*X)^(-1)*(x^T)*F
+    P = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X), X)), np.transpose(X)), F)
+    print("Kxx,Kxy,Kyx,Kyy: ", P[0],P[2],P[4],P[6])
+    print("Cxx,Cxy,Cyx,Cyy: ", P[1], P[3], P[5], P[7])
+    return P
+
+
 def calculate_stiffness_matrix(
     fluid_flow_object, force_type=None, oil_film_force="numerical"
 ):
@@ -185,7 +304,6 @@ def calculate_stiffness_matrix(
     >>> calculate_stiffness_matrix(my_fluid_flow)  # doctest: +ELLIPSIS
     [417...
     """
-    print("Inside fluid_flow_coefficient")
     if force_type != "numerical" and (
         force_type == "short" or fluid_flow_object.bearing_type == "short_bearing"
     ):
@@ -249,80 +367,40 @@ def calculate_stiffness_matrix(
             )
         )
     else:
-        N = 200
-        fluid_flow_object.omegap = fluid_flow_object.omega
-        t = np.linspace(0,2*np.pi/fluid_flow_object.omegap,N)
-        xp = fluid_flow_object.difference_between_radius * 0.002
-        yp = fluid_flow_object.difference_between_radius * 0.002
-        xi0 = fluid_flow_object.xi
-        yi0 =fluid_flow_object.yi
-        dx = np.zeros(N)
-        dx_dot = np.zeros(N)
-        radial_force = np.zeros(N)
-        tangential_force = np.zeros(N)
-        force_x = np.zeros(N)
-        force_y = np.zeros(N)
 
-        for i in range(N):
-            print("Progress: {:2.1%}".format(i / N), end="\r")
-            #print(i)
-            fluid_flow_object.t = t[i]
-            delta_x = (xp) * np.sin(fluid_flow_object.omegap * fluid_flow_object.t)
-            fluid_flow_object.xi = xi0 + delta_x
-            fluid_flow_object.yi = yi0
-            fluid_flow_object.eccentricity = np.sqrt(fluid_flow_object.xi ** 2 + fluid_flow_object.yi ** 2)
-            fluid_flow_object.eccentricity_ratio = fluid_flow_object.eccentricity / fluid_flow_object.difference_between_radius
-            fluid_flow_object.attitude_angle = -np.arctan(fluid_flow_object.xi / fluid_flow_object.yi)
+        [radial_force, tangential_force, force_x, force_y] = calculate_oil_film_force(
+            fluid_flow_object, force_type=oil_film_force
+        )
+        delta = fluid_flow_object.difference_between_radius / 100
 
-            dx[i] = delta_x
-            dx_dot[i] = fluid_flow_object.omegap * (xp) * np.cos(fluid_flow_object.omegap * fluid_flow_object.t)
+        move_rotor_center(fluid_flow_object, delta, 0)
+        fluid_flow_object.calculate_coefficients()
+        fluid_flow_object.calculate_pressure_matrix_numerical()
+        [
+            radial_force_x,
+            tangential_force_x,
+            force_x_x,
+            force_y_x,
+        ] = calculate_oil_film_force(fluid_flow_object, force_type=oil_film_force)
 
-            fluid_flow_object.calculate_coefficients()
-            p_mat = fluid_flow_object.calculate_pressure_matrix_numerical()
-            [radial_force[i], tangential_force[i], force_x[i], force_y[i]] = \
-                calculate_oil_film_force(fluid_flow_object, force_type='numerical')
+        move_rotor_center(fluid_flow_object, -delta, 0)
+        move_rotor_center(fluid_flow_object, 0, delta)
+        fluid_flow_object.calculate_coefficients()
+        fluid_flow_object.calculate_pressure_matrix_numerical()
+        [
+            radial_force_y,
+            tangential_force_y,
+            force_x_y,
+            force_y_y,
+        ] = calculate_oil_film_force(fluid_flow_object, force_type=oil_film_force)
+        move_rotor_center(fluid_flow_object, 0, -delta)
 
-        # [radial_force, tangential_force, force_x, force_y] = calculate_oil_film_force(
-        #     fluid_flow_object, force_type=oil_film_force
-        # )
-        # delta = fluid_flow_object.difference_between_radius / 100
-        #
-        # move_rotor_center(fluid_flow_object, delta, 0)
-        # fluid_flow_object.calculate_coefficients()
-        # fluid_flow_object.calculate_pressure_matrix_numerical()
-        # [
-        #     radial_force_x,
-        #     tangential_force_x,
-        #     force_x_x,
-        #     force_y_x,
-        # ] = calculate_oil_film_force(fluid_flow_object, force_type=oil_film_force)
-        #
-        # move_rotor_center(fluid_flow_object, -delta, 0)
-        # move_rotor_center(fluid_flow_object, 0, delta)
-        # fluid_flow_object.calculate_coefficients()
-        # fluid_flow_object.calculate_pressure_matrix_numerical()
-        # [
-        #     radial_force_y,
-        #     tangential_force_y,
-        #     force_x_y,
-        #     force_y_y,
-        # ] = calculate_oil_film_force(fluid_flow_object, force_type=oil_film_force)
-        # move_rotor_center(fluid_flow_object, 0, -delta)
+        kxx = (force_x - force_x_x) / delta
+        kyx = (force_y - force_y_x) / delta
+        kxy = (force_x - force_x_y) / delta
+        kyy = (force_y - force_y_y) / delta
 
-        kxx = force_x
-        kxy = force_y
-        kyx = dx
-        kyy = dx_dot
-
-        # kxx = (force_x - force_x_x) / (dx_dot - dx_x_dot)
-        # kyx = (force_y - force_y_x) / (dx_dot - dx_x_dot)  # (force_y - force_y_x) / delta
-        # kxy = (force_x - force_x_y) / (dy_dot - dy_y_dot)
-        # kyy = (force_y - force_y_y) / (dy_dot - dy_y_dot)
-
-
-        print("Kxx,Kxy,Kyx,Ky= ",kxx,kxy,kyx,kyy)
-
-    return np.array([kxx, kxy, kyx, kyy])
+    return [kxx, kxy, kyx, kyy]
 
 
 def calculate_damping_matrix(fluid_flow_object, force_type=None):
@@ -361,7 +439,6 @@ def calculate_damping_matrix(fluid_flow_object, force_type=None):
                 + 48 * fluid_flow_object.eccentricity_ratio ** 2)) /
                (fluid_flow_object.eccentricity_ratio * np.sqrt(1 - fluid_flow_object.eccentricity_ratio ** 2)))
     else:
-
         cxx, cxy, cyx, cyy = warnings.warn(
             "Function calculate_damping_matrix cannot yet be calculated numerically. "
             "The force_type should be  'short' or 'short_bearing"

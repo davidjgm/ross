@@ -264,6 +264,8 @@ class FluidFlow:
         self.xi0 = 0
         self.omegap = 0
         self.t = 0
+        self.xp = 0
+        self.yp = 0
         self.p_mat_analytical = np.zeros([self.nz, self.ntheta])
         self.c1 = np.zeros([self.nz, self.ntheta])
         self.c2 = np.zeros([self.nz, self.ntheta])
@@ -369,7 +371,7 @@ class FluidFlow:
         self.analytical_pressure_matrix_available = True
         return self.p_mat_analytical
 
-    def calculate_coefficients(self):
+    def calculate_coefficients(self, direction=None):
         """This function calculates the constants that form the Poisson equation
         of the discrete pressure (central differences in the second
         derivatives). It is executed when the class is instantiated.
@@ -420,12 +422,16 @@ class FluidFlow:
                 self.c0w[i][j] = (- w * self.ri[i][j] *
                                   (np.log(self.re[i][j] / self.ri[i][j]) *
                                    (1 + (self.ri[i][j] ** 2) / (self.re[i][j] ** 2 - self.ri[i][j] ** 2)) - 1 / 2))
-                angle = self.attitude_angle-self.gama[i][j]
-                dri = -self.eccentricity*np.cos(angle)-(self.eccentricity**2 *np.cos(angle)*np.sin(angle))/np.sqrt(self.radius_rotor**2-self.eccentricity**2*np.cos(angle)**2)
-                xp = self.difference_between_radius * 0.002
-                yp = self.difference_between_radius * 0.002
-                self.c0w[i][j] -= self.gama[i][j]*self.omegap*(xp)*np.cos(self.omegap*self.t)*(dri*np.sin(self.gama[i][j]) + self.ri[i][j]*np.cos(self.gama[i][j]))
-               #print("omegap = ",self.omegap)
+
+                angle = self.attitude_angle - self.gama[i][j]
+                dri = -self.eccentricity * np.cos(angle) - (self.eccentricity ** 2 * np.cos(angle) * np.sin(angle)) / np.sqrt(self.radius_rotor ** 2 - self.eccentricity ** 2 * np.cos(angle) ** 2)
+
+                if direction == "x":
+                    self.c0w[i][j] += self.gama[i][j]*self.omegap*(self.xp)*np.cos(self.omegap*self.t)*(dri*np.sin(self.gama[i][j]) + self.ri[i][j]*np.cos(self.gama[i][j]))
+                elif direction == "y":
+                    self.c0w[i][j] += self.gama[i][j] * self.omegap * (self.yp) * np.cos(self.omegap * self.t) * (-dri * np.cos(self.gama[i][j]) + self.ri[i][j] * np.sin(self.gama[i][j]))
+                else:
+                    self.c0w[i][j] += 0
                 # fmt: on
                 if not eccentricity_error:
                     if abs(self.xri[i][j]) > abs(self.xre[i][j]) or abs(
