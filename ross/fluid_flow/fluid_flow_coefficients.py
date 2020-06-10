@@ -162,10 +162,10 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
 
 
 def calculate_coefficients_matrix(fluid_flow_object):
-    N = 101  # Number of time steps
-    t = np.linspace(0, 2 * np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
-    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.00051  # Perturbation along x
-    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00051  # Perturbation along y
+    N = 111  # Number of time steps
+    t = np.linspace(0, 0.1 * np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
+    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.00511  # Perturbation along x
+    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00511  # Perturbation along y
     xi0 = fluid_flow_object.xi  # Eq. pos. along x
     yi0 = fluid_flow_object.yi  # Eq. pos. along y
     dx = np.zeros(N) # Displ. vetor from eq. pos. along x
@@ -180,7 +180,7 @@ def calculate_coefficients_matrix(fluid_flow_object):
     force_yx = np.zeros(N) # Force along y for a perturbation along x
     force_xy = np.zeros(N) # Force along x for a perturbation along y
     force_yy = np.zeros(N) # Force along y for a perturbation along y
-    X = np.zeros([4*N,12]) # Displ. and vel. vector
+    X = np.zeros([4*N,16]) # Displ. and vel. vector
     F = np.zeros(4*N) # Forces vector
 
     # Compute the coefficients of the continuity equation for eq. position
@@ -270,20 +270,24 @@ def calculate_coefficients_matrix(fluid_flow_object):
 
         #  P is 8x1: [Kxx,Cxx,Mxx,Kxy,Cxy,Mxy,Kyx,Cyx,Myx,Kyy,Cyy,Myy]
         # Assemble X and F matrices
-        X[4*i] =   [1, dx[i],xdot[i],xddot[i],    0,      0,       0,    0,      0,       0,    0,      0,       0]
-        X[4*i+1] = [1,    0,      0,       0,dy[i],ydot[i],yddot[i],    0,      0,       0,    0,      0,       0]
-        X[4*i+2] = [1,    0,      0,       0,    0,      0,       0,dx[i],xdot[i],xddot[i],    0,      0,       0]
-        X[4*i+3] = [1,    0,      0,       0,    0,      0,       0,    0,      0,       0,dy[i],ydot[i],yddot[i]]
-        F[4*i] = (-force_xx[i] + feqx)*-1
-        F[4*i+1] = (-force_xy[i] + feqy)*-1
-        F[4*i+2] = (-force_yx[i] + feqx)*-1
-        F[4*i+3] = (-force_yy[i] + feqy)*-1
+        X[4*i] =   [1, 0,0,0,    dx[i],xdot[i],xddot[i],    0,      0,       0,    0,      0,       0,    0,      0,       0]
+        X[4*i+1] = [0, 1,0,0,   0,      0,       0,dy[i],ydot[i],yddot[i],    0,      0,       0,    0,      0,       0]
+        X[4*i+2] = [0, 0,1,0,   0,      0,       0,    0,      0,       0,dx[i],xdot[i],xddot[i],    0,      0,       0]
+        X[4*i+3] = [0,  0,0,1,  0,      0,       0,    0,      0,       0,    0,      0,       0,dy[i],ydot[i],yddot[i]]
+        F[4*i]   = -force_xx[i]
+        F[4*i+1] = -force_xy[i]
+        F[4*i+2] = -force_yx[i]
+        F[4*i+3] = -force_yy[i]
 
     # Compute the parameters vector according to # P = (x^T*X)^(-1)*(x^T)*F
     P = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X), X)), np.transpose(X)), F)
-    print("Kxx,Kxy,Kyx,Kyy: ", P[0],P[3],P[6],P[9])
-    print("Cxx,Cxy,Cyx,Cyy: ", P[1], P[4], P[7], P[10])
-    print("Mxx,Mxy,Myx,Myy: ", P[2], P[5], P[8], P[11])
+    print("fxx", P[0])
+    print("fxy", P[1])
+    print("fyx", P[2])
+    print("fyy", P[3])
+    print("Kxx,Kxy,Kyx,Kyy: ", P[4],P[7],P[10],P[13])
+    print("Cxx,Cxy,Cyx,Cyy: ", P[5], P[8], P[11], P[14])
+    print("Mxx,Mxy,Myx,Myy: ", P[6], P[9], P[12], P[15])
     return P
 
 
