@@ -164,8 +164,8 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
 def calculate_coefficients_matrix(fluid_flow_object):
     N = 6  # Number of time steps
     t = np.linspace(0, 2* np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
-    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.0005  # Perturbation along x
-    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.0005  # Perturbation along y
+    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.0001  # Perturbation along x
+    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.0001  # Perturbation along y
     xi0 = fluid_flow_object.xi  # Eq. pos. along x
     yi0 = fluid_flow_object.yi  # Eq. pos. along y
     dx = np.zeros(N) # Displ. vetor from eq. pos. along x
@@ -184,6 +184,8 @@ def calculate_coefficients_matrix(fluid_flow_object):
     X2 = np.zeros([N, 3])  # Displ. and vel. vector
     F = np.zeros(N) # Forces vector
     F2 = np.zeros(N)  # Forces vector
+    F3 = np.zeros(N)  # Forces vector
+    F4 = np.zeros(N)  # Forces vector
 
     # Compute the coefficients of the continuity equation for eq. position
     fluid_flow_object.calculate_coefficients()
@@ -276,13 +278,19 @@ def calculate_coefficients_matrix(fluid_flow_object):
         X[i]  =   [1, dx[i],xdot[i]]
         X2[i] =   [1, dy[i],ydot[i]]
 
+
         F[i]   = -force_xx[i]
         F2[i] = -force_yy[i]
+        F3[i] = -force_yx[i]
+        F4[i] = -force_xy[i]
 
 
     # Compute the parameters vector according to # P = (x^T*X)^(-1)*(x^T)*F
     P = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X), X)), np.transpose(X)), F)
     P2 = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X2), X2)), np.transpose(X2)), F2)
+    P3 = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X), X)), np.transpose(X)), F3)
+    P4 = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X2), X2)), np.transpose(X2)), F4)
+
     print("fxx0", P[0])
     print("fyy0", P2[0])
    # print("fxy", P[1])
@@ -292,7 +300,9 @@ def calculate_coefficients_matrix(fluid_flow_object):
     print("Kyy,Cyy: ", P2[1], P2[2])
   #  print("Cxx,Cxy,Cyx,Cyy: ", P[5], P[8], P[11], P[14])
    # print("Mxx,Mxy,Myx,Myy: ", P[6], P[9], P[12], P[15])
-    return P
+    K = [P[1], P3[1], P4[1], P2[1]]
+    C = [P[2],P3[2],P4[2],P2[2]]
+    return K,C
 
 
 def calculate_stiffness_matrix(
