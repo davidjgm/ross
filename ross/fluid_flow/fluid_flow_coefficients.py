@@ -163,7 +163,7 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
 
 def calculate_coefficients_matrix(fluid_flow_object):
     N = 6  # Number of time steps
-    t = np.linspace(0.13, 2* np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
+    t = np.linspace(0, 2* np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
     fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.000511  # Perturbation along x
     fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00019511  # Perturbation along y
     xi0 = fluid_flow_object.xi  # Eq. pos. along x
@@ -274,7 +274,7 @@ def calculate_coefficients_matrix(fluid_flow_object):
         #  P is 8x1: [Kxx,Cxx,Mxx,Kxy,Cxy,Mxy,Kyx,Cyx,Myx,Kyy,Cyy,Myy]
         # Assemble X and F matrices
         X[i]  =   [1, dx[i],xdot[i]]
-        X2[i] =   [1, dy[i],-ydot[i]]
+        X2[i] =   [1, dy[i],ydot[i]]
 
         F[i]   = -force_xx[i]
         F2[i] = -force_yy[i]
@@ -288,8 +288,8 @@ def calculate_coefficients_matrix(fluid_flow_object):
    # print("fxy", P[1])
    # print("fyx", P[2])
    # print("fyy", P[3])
-    print("Kxx,Cxx,Myy: ", P[1],P[2])
-    print("Kyy,Cyy,Myy: ", P2[1], P2[2])
+    print("Kxx,Cxx: ", P[1],P[2])
+    print("Kyy,Cyy: ", P2[1], P2[2])
   #  print("Cxx,Cxy,Cyx,Cyy: ", P[5], P[8], P[11], P[14])
    # print("Mxx,Mxy,Myx,Myy: ", P[6], P[9], P[12], P[15])
     return P
