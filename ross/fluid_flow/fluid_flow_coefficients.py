@@ -164,8 +164,8 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
 def calculate_coefficients_matrix(fluid_flow_object):
     N = 6  # Number of time steps
     t = np.linspace(0, 2* np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
-    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.000511  # Perturbation along x
-    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00019511  # Perturbation along y
+    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.0005  # Perturbation along x
+    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.0005  # Perturbation along y
     xi0 = fluid_flow_object.xi  # Eq. pos. along x
     yi0 = fluid_flow_object.yi  # Eq. pos. along y
     dx = np.zeros(N) # Displ. vetor from eq. pos. along x
