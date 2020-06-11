@@ -427,9 +427,11 @@ class FluidFlow:
                 dri = -self.eccentricity * np.cos(angle) - (self.eccentricity ** 2 * np.cos(angle) * np.sin(angle)) / np.sqrt(self.radius_rotor ** 2 - self.eccentricity ** 2 * np.cos(angle) ** 2)
 
                 if direction == "x":
-                    self.c0w[i][j] += self.gama[i][j]*self.omegap*(self.xp)*np.cos(self.omegap*self.t)*(dri*np.sin(self.gama[i][j]) + self.ri[i][j]*np.cos(self.gama[i][j]))
+                    #self.c0w[i][j] += self.gama[i][j]*self.omegap*(self.xp)*np.cos(self.omegap*self.t)*(dri*np.sin(self.gama[i][j]) +  self.ri[i][j]*np.cos(self.gama[i][j]))
+                    self.c0w[i][j] += self.ri[i][j] * self.omegap * (self.xp) * np.cos(self.omegap * self.t) * np.sin(self.gama[i][j])
                 elif direction == "y":
-                    self.c0w[i][j] += self.gama[i][j] * self.omegap * (self.yp) * np.cos(self.omegap * self.t) * (-dri * np.cos(self.gama[i][j]) + self.ri[i][j] * np.sin(self.gama[i][j]))
+                    #self.c0w[i][j] += self.gama[i][j] * self.omegap * (self.yp) * np.cos(self.omegap * self.t) * (-dri * np.cos(self.gama[i][j]) + self.ri[i][j] * np.sin(self.gama[i][j]))
+                    self.c0w[i][j] += self.ri[i][j] * self.omegap * (self.yp) * np.cos(self.omegap * self.t) * np.cos(self.gama[i][j])
                 else:
                     self.c0w[i][j] += 0
                 # fmt: on

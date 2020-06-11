@@ -162,10 +162,10 @@ def calculate_oil_film_force(fluid_flow_object, force_type=None):
 
 
 def calculate_coefficients_matrix(fluid_flow_object):
-    N = 111  # Number of time steps
-    t = np.linspace(0, 0.1 * np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
-    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.00511  # Perturbation along x
-    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00511  # Perturbation along y
+    N = 6  # Number of time steps
+    t = np.linspace(0.13, 2* np.pi / fluid_flow_object.omegap, N)  # Time vector for 1 period
+    fluid_flow_object.xp = fluid_flow_object.difference_between_radius * 0.000511  # Perturbation along x
+    fluid_flow_object.yp = fluid_flow_object.difference_between_radius * 0.00019511  # Perturbation along y
     xi0 = fluid_flow_object.xi  # Eq. pos. along x
     yi0 = fluid_flow_object.yi  # Eq. pos. along y
     dx = np.zeros(N) # Displ. vetor from eq. pos. along x
@@ -180,15 +180,18 @@ def calculate_coefficients_matrix(fluid_flow_object):
     force_yx = np.zeros(N) # Force along y for a perturbation along x
     force_xy = np.zeros(N) # Force along x for a perturbation along y
     force_yy = np.zeros(N) # Force along y for a perturbation along y
-    X = np.zeros([4*N,16]) # Displ. and vel. vector
-    F = np.zeros(4*N) # Forces vector
+    X = np.zeros([N,3]) # Displ. and vel. vector
+    X2 = np.zeros([N, 3])  # Displ. and vel. vector
+    F = np.zeros(N) # Forces vector
+    F2 = np.zeros(N)  # Forces vector
 
     # Compute the coefficients of the continuity equation for eq. position
     fluid_flow_object.calculate_coefficients()
     p_mat = fluid_flow_object.calculate_pressure_matrix_numerical()
     [radial_force_eq, tangential_force_eq, feqx, feqy] = \
         calculate_oil_film_force(fluid_flow_object, force_type='numerical')
-
+    print("feqx: ",feqx)
+    print("feqy: ", feqy)
     # This loop computes the hor. and vert. forces for perturbations along x and y dir with a freq. omegap
     # The time vector t ranges from 0-T (one period), with N timesteps
     # For each t, 2 set of equations are obtained:
@@ -270,24 +273,25 @@ def calculate_coefficients_matrix(fluid_flow_object):
 
         #  P is 8x1: [Kxx,Cxx,Mxx,Kxy,Cxy,Mxy,Kyx,Cyx,Myx,Kyy,Cyy,Myy]
         # Assemble X and F matrices
-        X[4*i] =   [1, 0,0,0,    dx[i],xdot[i],xddot[i],    0,      0,       0,    0,      0,       0,    0,      0,       0]
-        X[4*i+1] = [0, 1,0,0,   0,      0,       0,dy[i],ydot[i],yddot[i],    0,      0,       0,    0,      0,       0]
-        X[4*i+2] = [0, 0,1,0,   0,      0,       0,    0,      0,       0,dx[i],xdot[i],xddot[i],    0,      0,       0]
-        X[4*i+3] = [0,  0,0,1,  0,      0,       0,    0,      0,       0,    0,      0,       0,dy[i],ydot[i],yddot[i]]
-        F[4*i]   = -force_xx[i]
-        F[4*i+1] = -force_xy[i]
-        F[4*i+2] = -force_yx[i]
-        F[4*i+3] = -force_yy[i]
+        X[i]  =   [1, dx[i],xdot[i]]
+        X2[i] =   [1, dy[i],-ydot[i]]
+
+        F[i]   = -force_xx[i]
+        F2[i] = -force_yy[i]
+
 
     # Compute the parameters vector according to # P = (x^T*X)^(-1)*(x^T)*F
     P = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X), X)), np.transpose(X)), F)
-    print("fxx", P[0])
-    print("fxy", P[1])
-    print("fyx", P[2])
-    print("fyy", P[3])
-    print("Kxx,Kxy,Kyx,Kyy: ", P[4],P[7],P[10],P[13])
-    print("Cxx,Cxy,Cyx,Cyy: ", P[5], P[8], P[11], P[14])
-    print("Mxx,Mxy,Myx,Myy: ", P[6], P[9], P[12], P[15])
+    P2 = np.dot(np.dot(np.linalg.inv(np.dot(np.transpose(X2), X2)), np.transpose(X2)), F2)
+    print("fxx0", P[0])
+    print("fyy0", P2[0])
+   # print("fxy", P[1])
+   # print("fyx", P[2])
+   # print("fyy", P[3])
+    print("Kxx,Cxx,Myy: ", P[1],P[2])
+    print("Kyy,Cyy,Myy: ", P2[1], P2[2])
+  #  print("Cxx,Cxy,Cyx,Cyy: ", P[5], P[8], P[11], P[14])
+   # print("Mxx,Mxy,Myx,Myy: ", P[6], P[9], P[12], P[15])
     return P
 
 
